@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styled from "styled-components";
 import PopupCategories from "./components/popupCategories";
 import useCategories from "@/react-query/hooks/useCategories";
@@ -8,8 +8,11 @@ import useCategoryDetails from "@/react-query/hooks/useCategoryDetails";
 import FieldInput from "@/components/FieldInput";
 import useForm from "@/hooks/useForm";
 import ProductCategoryAttributes from "./components/ProductCategoryAttributes";
-import ProductVariances from "./components/ProductVariances";
-import ImageUpload from "@/components/ImageUpload";
+import ProductVariances, {
+  TProductVariance,
+} from "./components/ProductVariances";
+import { TCreateProductData, TApiProducVariance } from "@/types/api.type";
+import { ProductService } from "@/services/product.service";
 
 const Container = styled.div`
   height: 100%;
@@ -31,7 +34,7 @@ const Left = styled.div`
 const Right = styled.div`
   top: 20px;
   left: 23%;
-  width: 68%;
+  width: 70%;
   position: absolute;
   display: flex;
   flex-flow: column;
@@ -71,22 +74,99 @@ const AddNewProduct = () => {
     selectedCategoryPath: "",
     productName: "",
     productDescription: "",
-    productImages: [""],
+    productImages: [],
   };
   const { values, setValue } = useForm<{
     selectedCategoryPath: "selectedCategoryPath";
     productName: "productName";
     productDescription: "productDescription";
-    productImages: [""];
+    productImages: "productImages";
   }>(initialFormValues);
-
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
-
+  const [productAttributes, setProductAttributes] = useState<{
+    [key: string]: any;
+  }>({});
   const {
     categoryDetails,
     isError: isErrorCategoryDetails,
     isLoading: isLoadingCategoryDetails,
   } = useCategoryDetails(selectedCategoryId);
+  const [selectedBrandName, setSelectedBrandName] = useState<string | null>(
+    null
+  );
+  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
+  const [productVariances, setProductVariances] = useState<TProductVariance[]>(
+    []
+  );
+
+  useEffect(() => {
+    if (
+      categoryDetails &&
+      categoryDetails.groupedAttributeWithValues.length > 0
+    ) {
+      const { groupedAttributeWithValues } = categoryDetails;
+      let productAttributes: { [key: string]: any } = {};
+      groupedAttributeWithValues.forEach((item) => {
+        productAttributes[item.id] = null;
+      });
+      setProductAttributes(productAttributes);
+    }
+  }, [categoryDetails]);
+
+  const addProduct = async () => {
+    const formattedProductVariances: TApiProducVariance[] = [];
+    productVariances[0].values
+      .filter((item) => item.attributeValue !== "")
+      .forEach((pVariance) => {
+        const attributeName = productVariances[0].attributeName;
+        formattedProductVariances.push({
+          mainAttribute: {
+            name: attributeName,
+            value: pVariance.attributeValue,
+          },
+          imageURL: pVariance.imgURL ?? "",
+          subAttribute: {
+            name: productVariances[1].attributeName,
+            values: productVariances[1].values
+              .filter((item) => item.attributeValue !== "")
+              .map((value) => {
+                return {
+                  price: 0,
+                  quantity: 0,
+                  value: value.attributeValue,
+                };
+              }),
+          },
+        });
+      });
+    const data: TCreateProductData = {
+      brand_id: selectedBrandId ?? "",
+      category_id: selectedCategoryId,
+      description: values["productDescription"],
+      product_name: values["productName"],
+      productAttributes: productAttributes,
+      productVariances: formattedProductVariances,
+    };
+    console.log({ data });
+    const response = await ProductService.createProduct(data);
+    if (response) {
+      alert(true);
+    } else {
+      alert(false);
+    }
+  };
+
+  const handleAddNewProductVariance = () => {
+    if (productVariances.length < 2) {
+      setProductVariances((oldValue) => [
+        ...oldValue,
+        {
+          attributeName: "unname" + (oldValue.length + 1),
+          values: [{ attributeValue: "", imgURL: "" }],
+        },
+      ]);
+    }
+  };
 
   return (
     <Container>
@@ -101,15 +181,21 @@ const AddNewProduct = () => {
             type="images"
             placeholder="Input here"
             onChange={(url) => {
-              const updatedImages = [...values.productImages];
-              updatedImages[updatedImages.length - 1] = url;
-              setValue([...updatedImages, ""], "productImages");
+              const currentImages = [...values.productImages];
+              currentImages.push(url);
+              setValue(currentImages, "productImages");
             }}
             onRemoveItem={(_url) => {
               let updatedImages = [...values.productImages];
               const index = updatedImages.findIndex((url) => url === _url);
-              updatedImages.splice(index, 1);
-              setValue(updatedImages, "productImages");
+              updatedImages[index] = null;
+              let newArr: string[] = [];
+              updatedImages.forEach((url) => {
+                if (url !== null) {
+                  newArr.push(url);
+                }
+              });
+              setValue(newArr, "productImages");
             }}
             value={values.productImages}
           />
@@ -125,7 +211,7 @@ const AddNewProduct = () => {
             title="Category"
             type="button"
             placeholder="Select category"
-            onChange={(value) => {}}
+            onChange={(value) => setSelectedCategoryId(value)}
             value={values.selectedCategoryPath}
           />
           <FieldInput
@@ -138,10 +224,26 @@ const AddNewProduct = () => {
 
         {categoryDetails && (
           <>
-            <ProductCategoryAttributes categoryDetails={categoryDetails} />
+            <ProductCategoryAttributes
+              selectedBrandName={selectedBrandName}
+              onSetSelectedBrandId={(id) => setSelectedBrandId(id)}
+              onSetSelectedBrandName={(name) => setSelectedBrandName(name)}
+              categoryDetails={categoryDetails}
+              productAttributes={productAttributes}
+              setProductAttributes={(updatedProductAttributes) =>
+                setProductAttributes(updatedProductAttributes)
+              }
+            />
           </>
         )}
-        <ProductVariances />
+        <ProductVariances
+          productVariances={productVariances}
+          setProductVariances={(productVariances) =>
+            setProductVariances(productVariances)
+          }
+          addNewProductVariance={handleAddNewProductVariance}
+        />
+        <button onClick={() => addProduct()}>Add</button>
       </Right>
       {isOpenCategoriesPopup && (
         <PopupCategories

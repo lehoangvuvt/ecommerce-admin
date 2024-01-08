@@ -155,21 +155,35 @@ const FieldInput: React.FC<Props> = ({
           />
         );
         break;
-      // case "image":
-      //   inputComponent = <ImageUpload onUploadSuccess={} width="50px" height="50px" />;
-      //   break;
+      case "image":
+        inputComponent = (
+          <ImageUpload
+            uploadedURL={value}
+            onUploadSuccess={(url) => onChange(url)}
+            iconSize={30}
+          />
+        );
+        break;
       case "images":
         inputComponent = (
           <div style={{ display: "flex", flexFlow: "row wrap", gap: "5px" }}>
             {value.map((url: string, index: number) => (
               <ImageUpload
-                key={index}
-                onUploadSuccess={(url) => onChange(url)}
+                uploadedURL={value[index]}
+                key={url}
                 onRemove={() => onRemoveItem && onRemoveItem(url)}
-                width="50px"
-                height="50p"
+                width="65px"
+                height="65px"
+                iconSize={30}
               />
             ))}
+            <ImageUpload
+              uploadedURL={null}
+              onUploadSuccess={(url) => onChange(url)}
+              width="65px"
+              height="65px"
+              iconSize={30}
+            />
           </div>
         );
 

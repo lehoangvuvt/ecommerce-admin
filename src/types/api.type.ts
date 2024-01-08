@@ -55,3 +55,28 @@ export type TUploadFileRes = {
   original_filename: string;
   secure_url: string;
 };
+
+export type TApiProducVariance = {
+  imageURL: string;
+  mainAttribute: {
+    name: string;
+    value: any;
+  };
+  subAttribute: {
+    name: string;
+    values: {
+      quantity: number;
+      price: number;
+      value: any;
+    }[];
+  };
+};
+
+export type TCreateProductData = {
+  product_name: string;
+  description: string;
+  category_id: string;
+  brand_id: string;
+  productAttributes: { [key: string]: any };
+  productVariances: TApiProducVariance[];
+};

@@ -2,34 +2,27 @@
 
 import FieldInput from "@/components/FieldInput";
 import { TCategoryDetails } from "@/types/api.type";
-import { useEffect, useState } from "react";
 import { ContentTitle, ContentWithHeader } from "../page";
 
-const ProductCategoryAttributes = ({
-  categoryDetails,
-}: {
-  categoryDetails: TCategoryDetails;
-}) => {
-  const [selectedBrandName, setSelectedBrandName] = useState(null);
-  const [selectedBrandId, setSelectedBrandId] = useState<string | null>(null);
-  const [productAttributes, setProductAttributes] = useState<{
+type Props = {
+  productAttributes: { [key: string]: any };
+  setProductAttributes: (updatedProductAttributes: {
     [key: string]: any;
-  }>({});
+  }) => void;
+  categoryDetails: TCategoryDetails;
+  selectedBrandName: string | null;
+  onSetSelectedBrandName: (name: string | null) => void;
+  onSetSelectedBrandId: (id: string) => void;
+};
 
-  useEffect(() => {
-    if (
-      categoryDetails &&
-      categoryDetails.groupedAttributeWithValues.length > 0
-    ) {
-      const { groupedAttributeWithValues } = categoryDetails;
-      let productAttributes: { [key: string]: any } = {};
-      groupedAttributeWithValues.forEach((item) => {
-        productAttributes[item.id] = null;
-      });
-      setProductAttributes(productAttributes);
-    }
-  }, [categoryDetails]);
-
+const ProductCategoryAttributes: React.FC<Props> = ({
+  productAttributes,
+  categoryDetails,
+  selectedBrandName,
+  setProductAttributes,
+  onSetSelectedBrandName,
+  onSetSelectedBrandId,
+}) => {
   const handleOnChangeAttribute = (value: any, attributeId: string) => {
     const updatedProductAttributes = Object.assign({}, productAttributes);
     updatedProductAttributes[attributeId] = value;
@@ -38,11 +31,11 @@ const ProductCategoryAttributes = ({
 
   const handleSelectBrand = (value: any) => {
     if (!categoryDetails) return;
-    setSelectedBrandName(value);
+    onSetSelectedBrandName(value);
     const brand = categoryDetails.brands.find(
       (brand) => brand.brand_name === value
     );
-    if (brand) setSelectedBrandId(brand.id);
+    if (brand) onSetSelectedBrandId(brand.id);
   };
 
   return (
