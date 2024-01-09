@@ -1,9 +1,7 @@
 "use client";
 
-import FieldInput from "@/components/FieldInput";
 import ImageUpload from "@/components/ImageUpload";
-import { TCategoryDetails } from "@/types/api.type";
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent } from "react";
 import styled from "styled-components";
 
 const BaseContentHolder = styled.div`
@@ -102,9 +100,6 @@ const VarianceRowCol = styled.div`
   display: flex;
   flex-flow: column wrap;
   border-right: 1px solid rgba(0, 0, 0, 0.1);
-
-  /* padding-top: 15px; */
-  /* padding-bottom: 15px; */
 `;
 
 const VarianceRowColRow = styled.div`
@@ -123,8 +118,19 @@ const VarianceRowColRow = styled.div`
 `;
 
 export type TProductVariance = {
-  attributeName: string;
-  values: { attributeValue: any; imgURL: string | null }[];
+  mainAttribute: {
+    attributeName: string;
+    value: string;
+  };
+  imageURL: string | null;
+  subAttribute: {
+    attributeName: string;
+    values: {
+      value: string;
+      qty: number;
+      price: number;
+    }[];
+  } | null;
 };
 
 type Props = {
@@ -140,43 +146,121 @@ const ProductVariances: React.FC<Props> = ({
 }) => {
   const handleOnChangeAtrrValue = (
     e: ChangeEvent<HTMLInputElement>,
-    valueIndex: number,
-    varIndex: number
+    index: number,
+    type: "main" | "sub"
   ) => {
-    const updatedProductVariances = [...productVariances];
-    updatedProductVariances[varIndex].values[valueIndex] = {
-      ...updatedProductVariances[varIndex].values[valueIndex],
-      attributeValue: e.target.value,
-    };
-
-    if (valueIndex + 1 === updatedProductVariances[varIndex].values.length) {
-      updatedProductVariances[varIndex].values.push({
-        attributeValue: "",
-        imgURL: "",
-      });
+    let updatedProductVariances = structuredClone(productVariances);
+    if (type === "main") {
+      updatedProductVariances[index].mainAttribute.value = e.target.value;
+      if (index + 1 === updatedProductVariances.length) {
+        updatedProductVariances.push({
+          imageURL: "",
+          mainAttribute: {
+            attributeName:
+              updatedProductVariances[index].mainAttribute.attributeName,
+            value: "",
+          },
+          subAttribute: null,
+        });
+      }
+    } else {
+      updatedProductVariances = updatedProductVariances.map((item) => {
+        return {
+          ...item,
+          subAttribute: {
+            ...item.subAttribute,
+            values: item.subAttribute?.values.map((subAtrr, subArrIndex) => {
+              if (subArrIndex === index) {
+                return {
+                  ...subAtrr,
+                  value: e.target.value,
+                };
+              } else {
+                return subAtrr;
+              }
+            }),
+          },
+        };
+      }) as TProductVariance[];
     }
-
+    if (index + 1 === updatedProductVariances[0].subAttribute?.values.length) {
+      updatedProductVariances = updatedProductVariances.map((item) => {
+        return {
+          ...item,
+          subAttribute: {
+            ...item.subAttribute,
+            values: [
+              ...(item.subAttribute?.values as any[]),
+              {
+                value: "",
+                qty: 0,
+                price: 0,
+              },
+            ],
+          },
+        };
+      }) as TProductVariance[];
+    }
     setProductVariances(updatedProductVariances);
   };
 
   const handleOnChangeAtrrName = (
     e: ChangeEvent<HTMLInputElement>,
-    varIndex: number
+    type: "main" | "sub"
   ) => {
-    const updatedProductVariances = [...productVariances];
-    updatedProductVariances[varIndex].attributeName = e.target.value;
+    let updatedProductVariances: TProductVariance[] = [];
+    if (type === "main") {
+      updatedProductVariances = productVariances.map((item) => {
+        return {
+          ...item,
+          mainAttribute: {
+            ...item.mainAttribute,
+            attributeName: e.target.value,
+          },
+        };
+      });
+    } else {
+      updatedProductVariances = productVariances.map((item) => {
+        return {
+          ...item,
+          subAttribute: {
+            ...item.subAttribute,
+            attributeName: e.target.value,
+          },
+        };
+      }) as TProductVariance[];
+    }
     setProductVariances(updatedProductVariances);
   };
 
   const handleOnUploadSuccess = (url: string, vIndex: number) => {
     const updatedProductVariances = [...productVariances];
-    updatedProductVariances[0].values[vIndex].imgURL = url;
+    updatedProductVariances[vIndex].imageURL = url;
     setProductVariances(updatedProductVariances);
   };
 
   const handleOnRemoveImg = (vIndex: number) => {
     const updatedProductVariances = [...productVariances];
-    updatedProductVariances[0].values[vIndex].imgURL = null;
+    updatedProductVariances[vIndex].imageURL = null;
+    setProductVariances(updatedProductVariances);
+  };
+
+  const handleChangeField = (
+    field: "price" | "qty",
+    value: string,
+    subAtrrIndex: number,
+    mainAtrrIndex: number
+  ) => {
+    const updatedProductVariances = [...productVariances];
+    if (updatedProductVariances[mainAtrrIndex].subAttribute) {
+      const subAtrr = updatedProductVariances[mainAtrrIndex].subAttribute;
+      if (subAtrr && subAtrr.values[subAtrrIndex]) {
+        subAtrr.values[subAtrrIndex][field] = parseInt(value);
+        updatedProductVariances[mainAtrrIndex].subAttribute = subAtrr;
+      }
+    }
+
+    console.log(updatedProductVariances);
     setProductVariances(updatedProductVariances);
   };
 
@@ -184,42 +268,75 @@ const ProductVariances: React.FC<Props> = ({
     <ContentWithHeader>
       <ContentTitle>Sales information</ContentTitle>
       <button onClick={addNewProductVariance}>Add</button>
-      {productVariances.map((item, varIndex) => (
-        <VarianceItem key={varIndex}>
-          <VarianceAttributeName>
-            <input
-              value={item.attributeName}
-              onChange={(e) => handleOnChangeAtrrName(e, varIndex)}
-            />
-          </VarianceAttributeName>
-          <VarianceAttributeValuesContainer>
-            {item.values.map((value, vIndex) => (
-              <VarianceAttributeValue key={vIndex}>
+      {productVariances.length > 0 && (
+        <>
+          <VarianceItem>
+            <VarianceAttributeName>
+              <input
+                value={productVariances[0].mainAttribute.attributeName}
+                onChange={(e) => handleOnChangeAtrrName(e, "main")}
+              />
+            </VarianceAttributeName>
+            <VarianceAttributeValuesContainer>
+              {productVariances.map((mainAtrr, mainAtrrIndex) => (
+                <VarianceAttributeValue key={mainAtrrIndex}>
+                  <input
+                    value={mainAtrr.mainAttribute.value}
+                    onChange={(e) =>
+                      handleOnChangeAtrrValue(e, mainAtrrIndex, "main")
+                    }
+                    placeholder="input here"
+                  />
+                </VarianceAttributeValue>
+              ))}
+            </VarianceAttributeValuesContainer>
+          </VarianceItem>
+          {productVariances[0].subAttribute && (
+            <VarianceItem>
+              <VarianceAttributeName>
                 <input
-                  value={value.attributeValue}
-                  onChange={(e) => handleOnChangeAtrrValue(e, vIndex, varIndex)}
-                  placeholder="input here"
+                  value={productVariances[0].subAttribute.attributeName}
+                  onChange={(e) => handleOnChangeAtrrName(e, "sub")}
                 />
-              </VarianceAttributeValue>
-            ))}
-          </VarianceAttributeValuesContainer>
-        </VarianceItem>
-      ))}
+              </VarianceAttributeName>
+              <VarianceAttributeValuesContainer>
+                {productVariances[0].subAttribute.values.map(
+                  (subAtrr, subAtrrIndex) => (
+                    <VarianceAttributeValue key={subAtrrIndex}>
+                      <input
+                        value={subAtrr.value}
+                        onChange={(e) =>
+                          handleOnChangeAtrrValue(e, subAtrrIndex, "sub")
+                        }
+                        placeholder="input here"
+                      />
+                    </VarianceAttributeValue>
+                  )
+                )}
+              </VarianceAttributeValuesContainer>
+            </VarianceItem>
+          )}
+        </>
+      )}
+
       {productVariances.length > 0 && (
         <VarianceTable>
           <VarianceTableHeaders>
-            {productVariances.map((item, varIndex) => (
-              <VarianceTableHeader key={varIndex}>
-                {item.attributeName}
+            <VarianceTableHeader>
+              {productVariances[0].mainAttribute.attributeName}
+            </VarianceTableHeader>
+            {productVariances[0].subAttribute && (
+              <VarianceTableHeader>
+                {productVariances[0].subAttribute.attributeName}
               </VarianceTableHeader>
-            ))}
+            )}
             <VarianceTableHeader>Price</VarianceTableHeader>
             <VarianceTableHeader>Quantity</VarianceTableHeader>
           </VarianceTableHeaders>
-          {productVariances[0].values.map((value, vIndex) => (
+          {productVariances.map((item, mainAtrrIndex) => (
             <VarianceRow
-              className={value.attributeValue.length === 0 ? "hide" : ""}
-              key={vIndex}
+              className={item.mainAttribute.value.length === 0 ? "hide" : ""}
+              key={mainAtrrIndex}
             >
               <VarianceRowCol>
                 <span
@@ -232,66 +349,96 @@ const ProductVariances: React.FC<Props> = ({
                     padding: "15px",
                   }}
                 >
-                  {value.attributeValue}
+                  {item.mainAttribute.value}
                   <ImageUpload
-                    uploadedURL={value.imgURL}
-                    onRemove={() => handleOnRemoveImg(vIndex)}
+                    uploadedURL={item.imageURL}
+                    onRemove={() => handleOnRemoveImg(mainAtrrIndex)}
                     onUploadSuccess={(url) =>
-                      handleOnUploadSuccess(url, vIndex)
+                      handleOnUploadSuccess(url, mainAtrrIndex)
                     }
                   />
                 </span>
               </VarianceRowCol>
-              {productVariances[1] && (
+              {item.subAttribute && (
                 <VarianceRowCol>
-                  {productVariances[1].values.map((value2, vIndex2) => (
-                    <VarianceRowColRow
-                      className={
-                        value2.attributeValue.length === 0 ? "hide" : ""
-                      }
-                      key={vIndex2}
-                    >
-                      {value2.attributeValue}
-                    </VarianceRowColRow>
-                  ))}
+                  {item.subAttribute.values &&
+                    item.subAttribute.values.map(
+                      (subAttributeItem, subAttrIndex) => (
+                        <VarianceRowColRow
+                          className={
+                            subAttributeItem.value?.length === 0 ? "hide" : ""
+                          }
+                          key={subAttrIndex}
+                        >
+                          {subAttributeItem.value}
+                        </VarianceRowColRow>
+                      )
+                    )}
                 </VarianceRowCol>
               )}
 
               <VarianceRowCol>
-                {productVariances[1] &&
-                productVariances[1].values[0].attributeValue.length > 0 ? (
-                  productVariances[1].values.map((value2, vIndex2) => (
+                {item.subAttribute && item.subAttribute.values?.length > 0 ? (
+                  item.subAttribute.values.map((subAttribute, subAtrrIndex) => (
                     <VarianceRowColRow
-                      className={
-                        value2.attributeValue.length === 0 ? "hide" : ""
-                      }
-                      key={vIndex2}
+                      className={subAttribute.value?.length === 0 ? "hide" : ""}
+                      key={subAtrrIndex}
                     >
-                      <input type="number" defaultValue={0} />
+                      <input
+                        type="number"
+                        value={subAttribute.price}
+                        onChange={(e) =>
+                          handleChangeField(
+                            "price",
+                            e.target.value,
+                            subAtrrIndex,
+                            mainAtrrIndex
+                          )
+                        }
+                      />
                     </VarianceRowColRow>
                   ))
                 ) : (
                   <VarianceRowColRow>
-                    <input type="number" defaultValue={0} />
+                    <input
+                      type="number"
+                      // onChange={(e) =>
+                      //   handleChangeField("price", e.target.value, vIndex, 0)
+                      // }
+                      value={0}
+                    />
                   </VarianceRowColRow>
                 )}
               </VarianceRowCol>
               <VarianceRowCol>
-                {productVariances[1] &&
-                productVariances[1].values[0].attributeValue.length > 0 ? (
-                  productVariances[1].values.map((value2, vIndex2) => (
+                {item.subAttribute && item.subAttribute.values?.length > 0 ? (
+                  item.subAttribute.values.map((subAtrribute, subAtrrIndex) => (
                     <VarianceRowColRow
-                      className={
-                        value2.attributeValue.length === 0 ? "hide" : ""
-                      }
-                      key={vIndex2}
+                      className={subAtrribute.value?.length === 0 ? "hide" : ""}
+                      key={subAtrrIndex}
                     >
-                      <input />
+                      <input
+                        value={subAtrribute.qty}
+                        onChange={(e) =>
+                          handleChangeField(
+                            "qty",
+                            e.target.value,
+                            subAtrrIndex,
+                            mainAtrrIndex
+                          )
+                        }
+                      />
                     </VarianceRowColRow>
                   ))
                 ) : (
                   <VarianceRowColRow>
-                    <input />
+                    <input
+                      type="number"
+                      // onChange={(e) =>
+                      //   handleChangeField("qty", e.target.value, vIndex, 0)
+                      // }
+                      value={0}
+                    />
                   </VarianceRowColRow>
                 )}
               </VarianceRowCol>
@@ -299,16 +446,6 @@ const ProductVariances: React.FC<Props> = ({
           ))}
         </VarianceTable>
       )}
-      {/* <FieldInput
-        style={{ width: "100%" }}
-        titleStyle={{ alignItems: "center" }}
-        type="button"
-        title={"Product variances"}
-        required={false}
-        value={""}
-        onClickBTNInput={() => alert(true)}
-        onChange={(value) => {}}
-      /> */}
     </ContentWithHeader>
   );
 };

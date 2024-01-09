@@ -115,37 +115,40 @@ const AddNewProduct = () => {
 
   const addProduct = async () => {
     const formattedProductVariances: TApiProducVariance[] = [];
-    productVariances[0].values
-      .filter((item) => item.attributeValue !== "")
+    productVariances
+      .filter((item) => item.mainAttribute.value !== "")
       .forEach((pVariance) => {
-        const attributeName = productVariances[0].attributeName;
+        const attributeName = pVariance.mainAttribute.attributeName;
         formattedProductVariances.push({
           mainAttribute: {
             name: attributeName,
-            value: pVariance.attributeValue,
+            value: pVariance.mainAttribute.value,
           },
-          imageURL: pVariance.imgURL ?? "",
+          imageURL: pVariance.imageURL ?? "",
           subAttribute: {
-            name: productVariances[1].attributeName,
-            values: productVariances[1].values
-              .filter((item) => item.attributeValue !== "")
-              .map((value) => {
-                return {
-                  price: 0,
-                  quantity: 0,
-                  value: value.attributeValue,
-                };
-              }),
+            name: pVariance.subAttribute?.attributeName ?? "",
+            values: pVariance.subAttribute
+              ? pVariance.subAttribute.values
+                  .filter((subAtrr) => subAtrr.value !== "")
+                  .map((subAtrrValue) => {
+                    return {
+                      price: subAtrrValue.qty,
+                      quantity: subAtrrValue.qty,
+                      value: subAtrrValue.value,
+                    };
+                  })
+              : [],
           },
         });
       });
     const data: TCreateProductData = {
       brand_id: selectedBrandId ?? "",
       category_id: selectedCategoryId,
-      description: values["productDescription"],
-      product_name: values["productName"],
+      description: values.productDescription,
+      product_name: values.productName,
       productAttributes: productAttributes,
       productVariances: formattedProductVariances,
+      images: values.productImages,
     };
     console.log({ data });
     const response = await ProductService.createProduct(data);
@@ -157,14 +160,33 @@ const AddNewProduct = () => {
   };
 
   const handleAddNewProductVariance = () => {
-    if (productVariances.length < 2) {
-      setProductVariances((oldValue) => [
-        ...oldValue,
+    if (productVariances.length === 0) {
+      setProductVariances([
         {
-          attributeName: "unname" + (oldValue.length + 1),
-          values: [{ attributeValue: "", imgURL: "" }],
+          imageURL: "",
+          mainAttribute: { attributeName: "main_unname", value: "" },
+          subAttribute: null,
         },
       ]);
+    } else {
+      if (productVariances[0].subAttribute === null) {
+        const updatedProductVariances = productVariances.map((item) => {
+          return {
+            ...item,
+            subAttribute: {
+              attributeName: "sub_unname",
+              values: [
+                {
+                  value: "",
+                  qty: 0,
+                  price: 0,
+                },
+              ],
+            },
+          };
+        });
+        setProductVariances(updatedProductVariances);
+      }
     }
   };
 

@@ -77,6 +77,7 @@ export type TCreateProductData = {
   description: string;
   category_id: string;
   brand_id: string;
+  images: string[];
   productAttributes: { [key: string]: any };
   productVariances: TApiProducVariance[];
 };
