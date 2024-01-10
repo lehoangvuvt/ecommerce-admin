@@ -132,7 +132,7 @@ const AddNewProduct = () => {
                   .filter((subAtrr) => subAtrr.value !== "")
                   .map((subAtrrValue) => {
                     return {
-                      price: subAtrrValue.qty,
+                      price: subAtrrValue.price,
                       quantity: subAtrrValue.qty,
                       value: subAtrrValue.value,
                     };
@@ -150,7 +150,6 @@ const AddNewProduct = () => {
       productVariances: formattedProductVariances,
       images: values.productImages,
     };
-    console.log({ data });
     const response = await ProductService.createProduct(data);
     if (response) {
       alert(true);
